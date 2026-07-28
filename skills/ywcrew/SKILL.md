@@ -15,7 +15,7 @@ description: >-
 先运行 `ywcrew --version`。如果命令不存在，替用户安装并初始化（需要 Node ≥ 20）：
 
 ```bash
-npm install -g ywcrew && ywcrew init --yes
+npm install -g github:yuwen-cool/ywcrew && ywcrew init --yes
 ```
 
 `init --yes` 会探测本机已装的 agent CLI（claude/codex/grok/kimi/agy），自动启用已登录的后端并分发技能，不需要任何人工输入。装完跑 `ywcrew doctor` 向用户汇报哪些后端可用、哪些需要登录。

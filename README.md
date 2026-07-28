@@ -1,8 +1,8 @@
 # ywcrew
 
-[![npm](https://img.shields.io/npm/v/ywcrew)](https://www.npmjs.com/package/ywcrew)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
+[![tests](https://img.shields.io/badge/tests-47%20passing-brightgreen)](./test)
 
 **让你的 AI 智能体调用你本地订阅的其他 AI 智能体。**
 
@@ -22,16 +22,18 @@
 
 ## 安装
 
-**方式一：跟你的智能体说一句话**（推荐）。把下面这行发给任意 agent：
+**方式一：把仓库名发给你的智能体**（推荐）。对任意 agent 说：
 
-> 帮我安装 ywcrew：`npm install -g ywcrew && ywcrew init --yes`，装完用 `ywcrew doctor` 告诉我哪些后端可用。
+> 帮我安装 github.com/yuwen-cool/ywcrew：`npm install -g github:yuwen-cool/ywcrew && ywcrew init --yes`，装完用 `ywcrew doctor` 告诉我哪些后端可用。
 
 **方式二：自己动手**：
 
 ```bash
-npm install -g ywcrew
+npm install -g github:yuwen-cool/ywcrew
 ywcrew init        # 交互式：探测本地 CLI → 逐个确认模型/思考强度/panel 成员 → 分发技能
 ```
+
+升级：重跑同一条安装命令即可（`~/.ywcrew` 下的配置与偏好不受影响，装完 `ywcrew install` 重渲染技能）。
 
 `init --yes` 为非交互模式（自动启用所有已登录后端，绝不覆盖已有偏好）。装好后，在任意宿主里直接说：
 
