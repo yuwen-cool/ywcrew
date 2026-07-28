@@ -41,7 +41,9 @@
 ## 已知技术债
 
 - `~/.ywcrew/worktrees` 与 `runs/` 无自动 GC：线程续聊依赖 worktree 原地保留（kimi 会话绑定目录），需要实现基于"线程最后活跃时间"的过期清理（`ywcrew gc`）
-- agy 未登录时在无 TTY 下静默挂住（不输出任何错误），probe 只能报 unknown；登录后需复测 `agy models` 无 TTY 行为并补模型清单解析
+- agy 未登录时在无 TTY 下静默挂住（不输出任何错误），probe 只能报 unknown；已登录后 `agy models` 无 TTY 可正常列出模型
+- agy 的 Gemini 3.x 模型按 **Google 账号地区**（非 IP）做封锁：账号归属地不支持时报 FAILED_PRECONDITION "User location is not supported"，而 claude-sonnet-4-6 / claude-opus-4-6-thinking / gpt-oss 不受限。国区账号用户默认模型应配 claude 系
+- agy keyring 校验有 10s 硬超时：代理到 googleapis.com 慢于 10s 时登录态"看起来丢失"（token 实际在钥匙串），本质是网络问题
 
 
 - kimi/agy 的 stream-json 事件 schema 是按通用模式解析的，版本升级可能需要跟进
