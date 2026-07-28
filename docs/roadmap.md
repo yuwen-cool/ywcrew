@@ -40,6 +40,10 @@
 
 ## 已知技术债
 
+- `~/.ywcrew/worktrees` 与 `runs/` 无自动 GC：线程续聊依赖 worktree 原地保留（kimi 会话绑定目录），需要实现基于"线程最后活跃时间"的过期清理（`ywcrew gc`）
+- agy 未登录时在无 TTY 下静默挂住（不输出任何错误），probe 只能报 unknown；登录后需复测 `agy models` 无 TTY 行为并补模型清单解析
+
+
 - kimi/agy 的 stream-json 事件 schema 是按通用模式解析的，版本升级可能需要跟进
 - agy 未登录态检测较弱（依赖 models 输出是否为空）
 - grok `--json-schema` 与流式互斥，当前选结构化终稿；如需过程事件再评估双通道

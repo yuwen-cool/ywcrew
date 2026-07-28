@@ -22,13 +22,15 @@ export const grokAdapter: Adapter = {
   async probe(): Promise<ProbeResult> {
     const bin = await binaryExists("grok");
     if (!bin.ok) return { installed: false, authState: "unknown" };
-    const models = await run("grok", ["models"]);
-    const authState = /not authenticated/i.test(models.stdout + models.stderr) ? "unauthenticated" : "ok";
+    // grok models 实测 ~18s（走网络），需要宽松超时；正向判定避免超时被截杀时误报未登录
+    const models = await run("grok", ["models"], 60_000);
+    const all = models.stdout + models.stderr;
+    const authState = /logged in/i.test(all) ? "ok" : /not authenticated/i.test(all) ? "unauthenticated" : "unknown";
     return { installed: true, version: bin.version, authState };
   },
 
   async listModels(): Promise<ModelInfo[]> {
-    const r = await run("grok", ["models"]);
+    const r = await run("grok", ["models"], 60_000);
     const models: ModelInfo[] = [];
     for (const line of r.stdout.split("\n")) {
       const m = line.match(/^\s*\*?\s*([\w.-]+)\s*(\(default\))?\s*$/);

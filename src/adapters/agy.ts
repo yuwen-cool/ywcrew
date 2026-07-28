@@ -30,8 +30,14 @@ export const agyAdapter: Adapter = {
   async probe(): Promise<ProbeResult> {
     const bin = await binaryExists("agy");
     if (!bin.ok) return { installed: false, authState: "unknown" };
-    const r = await run("agy", ["models"]);
-    const authState = r.code === 0 && r.stdout.trim().length > 0 ? "ok" : "unknown";
+    const r = await run("agy", ["models"], 60_000);
+    const all = r.stdout + r.stderr;
+    // 实测未登录文案：Error: Please sign in to view available models.
+    const authState = /sign in|authentication required/i.test(all)
+      ? "unauthenticated"
+      : r.code === 0 && r.stdout.trim().length > 0
+        ? "ok"
+        : "unknown";
     return { installed: true, version: bin.version, authState };
   },
 
