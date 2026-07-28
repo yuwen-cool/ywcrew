@@ -93,4 +93,7 @@ export const grokAdapter: Adapter = {
     if (t.includes("rate limit") || t.includes("quota")) return "quota";
     return undefined;
   },
+  interactiveResume(sessionRef: string): string {
+    return `grok -r ${sessionRef}`;
+  },
 };

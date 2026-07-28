@@ -57,4 +57,6 @@ export interface Adapter {
   classifyError(output: string, exitCode: number | null): ResultStatus | undefined;
   /** 可选：从输出提取 token 用量 */
   extractUsage?(stdout: string): { inputTokens?: number; outputTokens?: number } | undefined;
+  /** 用户亲自接管会话的交互式命令（不含 cd 前缀，worker 负责拼目录） */
+  interactiveResume(sessionRef: string): string;
 }

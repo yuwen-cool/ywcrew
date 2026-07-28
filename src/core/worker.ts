@@ -297,6 +297,9 @@ export async function runWorker(runId: string): Promise<void> {
       artifacts: patchFile ? { patch: patchFile, files: [] } : undefined,
       usage: { ...adapter.extractUsage?.(outcome.stdout), durationMs },
       session_ref: sessionRef,
+      takeover_command: sessionRef
+        ? `cd ${JSON.stringify(cwd)} && ${adapter.interactiveResume(sessionRef)}`
+        : undefined,
       warnings: contract.result ? warnings : [...warnings, "输出未遵守结果契约，已降级为原文摘要"],
     };
     // contract_violated 但有内容时仍视为可用结果

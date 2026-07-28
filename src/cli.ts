@@ -128,17 +128,29 @@ program
 
 program
   .command("result")
-  .description("读取 run 的结构化结论")
-  .argument("<runId>")
-  .action((runId: string) => {
-    readRun(runId); // 触发惰性回收
-    const result = readResult(runId);
-    if (!result) {
-      const meta = readRun(runId);
-      console.log(JSON.stringify({ pending: true, state: meta?.state ?? "unknown" }));
-      return;
+  .description("读取 run 的结构化结论（--wait 阻塞等待完成）")
+  .argument("<runIds...>", "一个或多个 runId（多个时返回数组，配合 panel 用）")
+  .option("--wait", "阻塞直到全部完成或超时")
+  .option("--timeout <seconds>", "等待上限秒数", "600")
+  .action(async (runIds: string[], opts: { wait?: boolean; timeout: string }) => {
+    const deadline = Date.now() + Number(opts.timeout) * 1000;
+    const collect = () =>
+      runIds.map((runId) => {
+        const meta = readRun(runId); // 触发惰性回收
+        const result = readResult(runId);
+        return result
+          ? { runId, ...result }
+          : { runId, pending: true, state: meta?.state ?? "unknown" };
+      });
+    let results = collect();
+    if (opts.wait) {
+      while (results.some((r) => "pending" in r && r.pending) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        results = collect();
+      }
     }
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(runIds.length === 1 ? results[0] : results, null, 2));
+    if (results.some((r) => "pending" in r && r.pending)) process.exit(3);
   });
 
 program.command("template").description("打印五段式任务模板").action(() => {

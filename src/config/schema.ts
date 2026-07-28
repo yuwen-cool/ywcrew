@@ -80,6 +80,10 @@ export const ResultContractSchema = z.object({
     })
     .optional(),
   session_ref: z.string().optional().describe("被调后端的原生会话 ID，可续聊"),
+  takeover_command: z
+    .string()
+    .optional()
+    .describe("用户想亲自接管该会话时，可直接复制执行的交互式命令"),
   fix_command: z.string().optional().describe("auth_required 时给用户的确切修复命令"),
   warnings: z.array(z.string()).default([]),
 });

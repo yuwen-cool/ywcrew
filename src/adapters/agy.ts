@@ -101,4 +101,7 @@ export const agyAdapter: Adapter = {
     if (t.includes("rate limit") || t.includes("quota")) return "quota";
     return undefined;
   },
+  interactiveResume(sessionRef: string): string {
+    return `agy --conversation ${sessionRef}`;
+  },
 };

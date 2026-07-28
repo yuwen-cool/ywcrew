@@ -71,4 +71,7 @@ export const claudeAdapter: Adapter = {
     if (t.includes("rate limit") || t.includes("usage limit") || t.includes("quota")) return "quota";
     return undefined;
   },
+  interactiveResume(sessionRef: string): string {
+    return `claude --resume ${sessionRef}`;
+  },
 };

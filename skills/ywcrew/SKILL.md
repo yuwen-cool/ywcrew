@@ -19,6 +19,32 @@ description: >-
 
 **信任等级**：返回的是建议，必须对照代码库和测试自行验证后再采纳。
 
+## 调用目标怎么选（路由表）
+
+| 任务类型 | 首选 | 理由 |
+| --- | --- | --- |
+| 疑难 bug 定位、需要精确读代码 | codex（effort=high） | 沙箱原生只读，token 用量透明 |
+| 架构评审、方案权衡、长推理 | claude | 推理深度与批判性最稳 |
+| 中文语料、长文理解、文案 | kimi | 中文原生，长上下文 |
+| 快速第二意见、轻量核查 | grok（effort=low） | 快、成本低 |
+| 想要 Claude/GPT 但额度紧张 | agy（claude-sonnet-4-6） | 走 Google 订阅的 Claude 通道 |
+
+用户点名了模型/厂商就服从用户；没点名时按表路由。`ywcrew backends` 可查实际可用清单。
+
+## 场景手册
+
+- **第二意见**：单发 1 个与你不同家的模型，effort 从低开始
+- **评审会 / 方案对比**：`panel`（默认成员）；收齐后你必须综合：共识点、分歧点+原因、你的最终裁决
+- **多模型接力**（A 的产出给 B 挑刺）：先 run，拿 threadId 后 `followup <threadId> "评价上述结论" --backend 另一家`
+- **改代码竞赛**：对同一任务分别派 2 家 `mode: "edit"`，各自在隔离 worktree 出 patch，你对比后择优（把 patch 路径给用户）
+- **用户想亲自深聊**：result 里的 `takeover_command` 是一条可直接复制执行的接管命令，把它给用户即可
+
+## 异步节奏（像 Cursor 一样不阻塞主线）
+
+1. 派发后立即返回 runId —— **继续你手头的工作**，不要干等
+2. 到了需要结果的时刻：`ywcrew result <runId...> --wait --timeout 300`（可一次传 panel 的所有 runId，全部完成才返回）
+3. 特别长的任务：用后台 sleep 提醒自己回来收，期间正常做别的
+
 ## 核心纪律（决定效果好坏）
 
 1. **零知识假设**：被调模型对项目一无所知、看不到本对话。任务描述必须自包含。
@@ -67,13 +93,12 @@ echo '{"task": {...}}' | ywcrew panel --stdin --members claude,codex:gpt-5.6-sol
 ### 取结果 / 追问
 
 ```bash
-ywcrew status <runId>          # queued | running | done | failed
-ywcrew result <runId>          # 结构化结论 {status, summary, evidence, confidence, session_ref}
+ywcrew status <runId>                          # queued | running | done | failed
+ywcrew result <runId>                          # 立即返回（未完成给 pending）
+ywcrew result <id1> <id2> --wait --timeout 300 # 阻塞到全部完成，panel 收结果用这个
 ywcrew followup <threadId> "针对你说的第 2 点，如果采用 X 会怎样？"   # 同后端原生续聊
 ywcrew followup <threadId> "评价上面这个结论" --backend grok          # 换个模型接着聊
 ```
-
-派活后立即继续你手头的工作，隔一会儿再 `result`；长任务用后台 sleep 提醒自己回来取。
 
 ### 状态异常处置
 

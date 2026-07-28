@@ -75,4 +75,7 @@ export const kimiAdapter: Adapter = {
     if (t.includes("rate limit") || t.includes("quota")) return "quota";
     return undefined;
   },
+  interactiveResume(sessionRef: string): string {
+    return `kimi -r ${sessionRef}`;
+  },
 };

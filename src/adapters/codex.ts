@@ -95,4 +95,7 @@ export const codexAdapter: Adapter = {
     }
     return undefined;
   },
+  interactiveResume(sessionRef: string): string {
+    return `codex resume ${sessionRef}`;
+  },
 };
