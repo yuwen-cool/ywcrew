@@ -96,6 +96,12 @@ export const BackendConfigSchema = z.object({
   maxParallel: z.number().int().positive().default(2),
 });
 
+export const RoutingRuleSchema = z.object({
+  when: z.string().describe("任务类型的自然语言描述，如「疑难 bug 定位」"),
+  use: z.string().describe("backend[:model][:effort]，如 codex::high、agy:claude-sonnet-4-6"),
+});
+export type RoutingRule = z.infer<typeof RoutingRuleSchema>;
+
 export const ConfigSchema = z.object({
   version: z.literal(1).default(1),
   backends: z.partialRecord(z.enum(BACKEND_IDS), BackendConfigSchema).default(() => ({})),
@@ -104,8 +110,10 @@ export const ConfigSchema = z.object({
       panel: z.array(z.string()).default([]).describe('如 ["claude", "codex:gpt-5.6-sol"]'),
       maxParallelGlobal: z.number().int().positive().default(4),
       tokenBudget: z.number().int().positive().default(150_000),
+      /** 用户自定义路由偏好；空则使用内置默认（按已启用后端过滤） */
+      routing: z.array(RoutingRuleSchema).default([]),
     })
-    .default(() => ({ panel: [], maxParallelGlobal: 4, tokenBudget: 150_000 })),
+    .default(() => ({ panel: [], maxParallelGlobal: 4, tokenBudget: 150_000, routing: [] })),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 

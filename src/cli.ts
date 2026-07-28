@@ -15,19 +15,20 @@ import { BACKEND_IDS, type BackendId } from "./config/schema.js";
 const program = new Command();
 program.name("ywcrew").description("把任务派给你本地订阅的 AI agents（claude/codex/grok/kimi/agy）").version("0.1.0");
 
+// 注意：模板里只放合法真值，不放占位符——宿主 agent 照抄模板漏改字段时，
+// 占位符会被当真值透传给后端。model 可选，不指定就整个省略该字段。
 const TEMPLATE = {
   backend: "kimi",
-  model: "（可选，覆盖默认）",
-  effort: "medium",
   mode: "read-only",
   task: {
     briefing: "项目背景：技术栈、构建/测试命令。被调模型对项目零知识，写全。",
     locations: "关键代码在哪：入口、模块路径",
     objective: "确切的问题 + 已尝试过什么 + 原始报错全文",
     constraints: "不许改哪些文件、不许做什么",
+    output_contract: "期望的输出形态：如按严重级别排序的问题列表，每条带文件:行号",
   },
   files: ["src/**/*.ts", "!**/*.test.ts"],
-  label: "人类可读的任务名",
+  label: "lock 并发评审",
 };
 
 function printDispatch(outcome: { run: { runId: string }; threadId: string; warnings: string[] }): void {
@@ -40,17 +41,20 @@ program
   .option("--task-file <path>", "任务 JSON 文件")
   .option("--stdin", "从 stdin 读任务 JSON")
   .action(async (opts: { taskFile?: string; stdin?: boolean }) => {
-    let raw: string;
-    if (opts.taskFile) raw = fs.readFileSync(opts.taskFile, "utf8");
-    else if (opts.stdin) raw = fs.readFileSync(0, "utf8");
-    else {
+    if (!opts.taskFile && !opts.stdin) {
       console.error("需要 --task-file 或 --stdin。模板: ywcrew template");
       process.exit(2);
     }
     try {
+      const raw = opts.taskFile ? fs.readFileSync(opts.taskFile, "utf8") : fs.readFileSync(0, "utf8");
       printDispatch(dispatchTask(JSON.parse(raw)));
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        (err as NodeJS.ErrnoException).code === "ENOENT" && opts.taskFile
+          ? `任务文件不存在: ${opts.taskFile}`
+          : msg,
+      );
       process.exit(1);
     }
   });
@@ -62,20 +66,45 @@ program
   .option("--stdin", "从 stdin 读任务 JSON")
   .option("--members <list>", "覆盖默认成员，如 claude,codex:gpt-5.6-sol,kimi")
   .action((opts: { taskFile?: string; stdin?: boolean; members?: string }) => {
-    const raw = opts.taskFile ? fs.readFileSync(opts.taskFile, "utf8") : fs.readFileSync(0, "utf8");
-    const base = JSON.parse(raw) as Record<string, unknown>;
+    if (!opts.taskFile && !opts.stdin) {
+      console.error("需要 --task-file 或 --stdin。模板: ywcrew template");
+      process.exit(2);
+    }
+    let base: Record<string, unknown>;
+    try {
+      const raw = opts.taskFile ? fs.readFileSync(opts.taskFile, "utf8") : fs.readFileSync(0, "utf8");
+      base = JSON.parse(raw) as Record<string, unknown>;
+    } catch (err) {
+      console.error(`任务 JSON 读取/解析失败：${err instanceof Error ? err.message : String(err)}。模板: ywcrew template`);
+      process.exit(1);
+    }
+    if (base.mode === "edit") {
+      console.error("panel 只支持 read-only（并行评审）。要做改代码竞赛，请分别用 ywcrew run 派多个 mode:edit 任务。");
+      process.exit(2);
+    }
     const config = loadConfig();
     const members = (opts.members?.split(",") ?? config.defaults.panel).map((s) => s.trim()).filter(Boolean);
     if (members.length < 2) {
       console.error("panel 至少需要 2 个成员（ywcrew init 配置默认成员，或传 --members）");
       process.exit(2);
     }
-    const results = members.map((member) => {
+    // 成员逐个派发：单个成员不可用（未装/未登录）只降级跳过，不拖垮整场评审
+    const results: Array<Record<string, unknown>> = [];
+    const skipped: Array<{ member: string; reason: string }> = [];
+    for (const member of members) {
       const [backend, model] = member.split(":");
-      const outcome = dispatchTask({ ...base, backend, model: model || undefined, mode: "read-only" });
-      return { member, runId: outcome.run.runId, threadId: outcome.threadId };
-    });
-    console.log(JSON.stringify({ panel: results }, null, 2));
+      try {
+        const outcome = dispatchTask({ ...base, backend, model: model || undefined, mode: "read-only" });
+        results.push({ member, runId: outcome.run.runId, threadId: outcome.threadId });
+      } catch (err) {
+        skipped.push({ member, reason: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    if (results.length === 0) {
+      console.error(`panel 全部成员不可用：\n${skipped.map((s) => `  ${s.member}: ${s.reason}`).join("\n")}`);
+      process.exit(1);
+    }
+    console.log(JSON.stringify({ panel: results, skipped }, null, 2));
   });
 
 program
@@ -88,7 +117,7 @@ program
   .action((threadId: string, prompt: string, opts: { backend?: string; model?: string }) => {
     const thread = getThread(threadId);
     if (!thread || thread.turns.length === 0) {
-      console.error(`线程 ${threadId} 不存在或为空`);
+      console.error(`线程 ${threadId} 不存在或为空（ywcrew run 派任务时会返回新的 threadId）`);
       process.exit(1);
     }
     const last = thread.turns[thread.turns.length - 1];
@@ -120,9 +149,13 @@ program
       }
       console.log(JSON.stringify(meta, null, 2));
     } else {
-      for (const m of listRuns()) {
-        console.log(`${m.runId}  ${m.state.padEnd(9)} ${m.backend.padEnd(7)} ${m.label ?? ""}`);
-      }
+      console.log(
+        JSON.stringify(
+          listRuns().map((m) => ({ runId: m.runId, state: m.state, backend: m.backend, label: m.label })),
+          null,
+          2,
+        ),
+      );
     }
   });
 
@@ -133,6 +166,12 @@ program
   .option("--wait", "阻塞直到全部完成或超时")
   .option("--timeout <seconds>", "等待上限秒数", "600")
   .action(async (runIds: string[], opts: { wait?: boolean; timeout: string }) => {
+    // 不存在的 runId 直接报错，避免 --wait 对着拼错的 id 干等满整个 timeout
+    const missing = runIds.filter((id) => !readRun(id));
+    if (missing.length > 0) {
+      console.error(`run 不存在: ${missing.join(", ")}（ywcrew status 可列出近期 run）`);
+      process.exit(1);
+    }
     const deadline = Date.now() + Number(opts.timeout) * 1000;
     const collect = () =>
       runIds.map((runId) => {
@@ -157,14 +196,23 @@ program.command("template").description("打印五段式任务模板").action(()
   console.log(JSON.stringify(TEMPLATE, null, 2));
 });
 
-program.command("init").description("首次配置向导").action(runInit);
+program
+  .command("init")
+  .description("首次配置向导（--yes 非交互，供智能体自举安装）")
+  .option("--yes", "跳过交互：启用所有已安装且已登录的后端，采用默认配置；不覆盖已有偏好")
+  .action((opts: { yes?: boolean }) => runInit(opts));
 
 program
   .command("refresh")
-  .description("重新探测后端与模型清单")
+  .description("重新探测后端与模型清单，并重渲染各宿主技能")
   .action(async () => {
     const caps = await probeAll();
     console.log(JSON.stringify(caps, null, 2));
+    try {
+      installSkills();
+    } catch {
+      /* 尚未 install 过则跳过 */
+    }
   });
 
 program
@@ -190,9 +238,58 @@ program
 
 program
   .command("install")
-  .description("把技能分发到各宿主 skills 目录")
+  .description("把技能分发到各宿主 skills 目录（按当前配置渲染路由表）")
   .option("--each", "统一目录之外也逐宿主分发")
   .action(() => installSkills());
+
+const route = program.command("route").description("查看/自定义任务路由偏好（写进各宿主技能）");
+route
+  .command("list")
+  .description("查看当前生效的路由表")
+  .action(async () => {
+    const { effectiveRouting } = await import("./install/routing.js");
+    const config = loadConfig();
+    const custom = config.defaults.routing.length > 0;
+    console.log(custom ? "（用户自定义）" : "（内置默认，按已启用后端过滤）");
+    for (const r of effectiveRouting(config)) console.log(`  ${r.when}  →  ${r.use}`);
+  });
+route
+  .command("add")
+  .description('新增一条自定义规则，如 ywcrew route add "性能优化" "codex::high"')
+  .argument("<when>", "任务类型描述")
+  .argument("<use>", "backend[:model][:effort]")
+  .action(async (when: string, use: string) => {
+    const { saveConfig } = await import("./config/load.js");
+    const config = loadConfig();
+    config.defaults.routing.push({ when, use });
+    saveConfig(config);
+    installSkills();
+    console.log(`✅ 已添加并重新渲染技能：${when} → ${use}`);
+  });
+route
+  .command("clear")
+  .description("清空自定义规则，回到内置默认")
+  .action(async () => {
+    const { saveConfig } = await import("./config/load.js");
+    const config = loadConfig();
+    config.defaults.routing = [];
+    saveConfig(config);
+    installSkills();
+    console.log("✅ 已恢复内置默认路由并重新渲染技能");
+  });
+
+program
+  .command("gc")
+  .description("清理超龄的已完成 run、worktree 与不活跃线程")
+  .option("--days <n>", "run/worktree 保留天数", "7")
+  .option("--thread-days <n>", "线程保留天数", "30")
+  .action(async (opts: { days: string; threadDays: string }) => {
+    const { runGc } = await import("./core/gc.js");
+    const report = runGc({ days: Number(opts.days), threadDays: Number(opts.threadDays) });
+    console.log(
+      `✅ 已清理 ${report.runsRemoved.length} 个 run、${report.worktreesRemoved.length} 个 worktree、${report.threadsRemoved.length} 个线程；保留 ${report.kept} 个 run`,
+    );
+  });
 
 program
   .command("backends")

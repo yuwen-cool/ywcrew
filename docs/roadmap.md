@@ -38,9 +38,18 @@
 - (model, stance) 组合：for/against/neutral + 立场护栏 prompt
 - 盲评：成员看不到彼此回答（当前已是），综合模板强化
 
+## 多模型 review 中确认、本轮未修的项（codex/kimi 评审 2026-07-28）
+
+- 同一 thread 并发 followup：两个 worker 可能并行 resume 同一原生 session，appendTurn 读改写竞争可能丢一轮历史 → 需要 thread 级跨进程互斥（覆盖 continuation 规划 + 执行 + 记账）
+- need_more_context 补充轮独享完整 timeoutMs，单任务实际上限约 2x → 需要任务级绝对 deadline
+- files glob 有匹配但全部被 `!`/gitignore/secret guard 排除时，worker 在零文件上下文下执行 → 需要对最终有效文件集做二次零匹配校验
+- 孤儿 worktree 兜底 rm 后未对源仓库执行 `git worktree prune`，源仓库会残留 worktree 注册项
+- `followup --backend` 换后端时无法传 effort
+- doctor 输出偏技术（"只读机制"等内部概念），可为普通用户折叠
+
 ## 已知技术债
 
-- `~/.ywcrew/worktrees` 与 `runs/` 无自动 GC：线程续聊依赖 worktree 原地保留（kimi 会话绑定目录），需要实现基于"线程最后活跃时间"的过期清理（`ywcrew gc`）
+- ~~`~/.ywcrew/worktrees` 与 `runs/` 无自动 GC~~ 已实现 `ywcrew gc`（保护活跃 run/被线程引用的 worktree）
 - agy 未登录时在无 TTY 下静默挂住（不输出任何错误），probe 只能报 unknown；已登录后 `agy models` 无 TTY 可正常列出模型
 - agy 的 Gemini 3.x 模型按 **Google 账号地区**（非 IP）做封锁：账号归属地不支持时报 FAILED_PRECONDITION "User location is not supported"，而 claude-sonnet-4-6 / claude-opus-4-6-thinking / gpt-oss 不受限。国区账号用户默认模型应配 claude 系
 - agy keyring 校验有 10s 硬超时：代理到 googleapis.com 慢于 10s 时登录态"看起来丢失"（token 实际在钥匙串），本质是网络问题

@@ -36,7 +36,8 @@ function execBackend(
   eventsFile: string,
 ): Promise<ExecOutcome> {
   return new Promise((resolve) => {
-    const child = spawn(binary, argv, { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    // detached：backend CLI 可能拉起 MCP/浏览器等孙进程，超时必须终止整个进程组
+    const child = spawn(binary, argv, { cwd, stdio: ["pipe", "pipe", "pipe"], detached: true });
     let stdout = "";
     let stderr = "";
     const events = fs.createWriteStream(eventsFile, { flags: "a" });
@@ -44,9 +45,14 @@ function execBackend(
     const timer = setTimeout(() => {
       timedOut = true;
       try {
-        child.kill("SIGKILL");
+        if (child.pid) process.kill(-child.pid, "SIGKILL");
+        else child.kill("SIGKILL");
       } catch {
-        /* already dead */
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          /* already dead */
+        }
       }
     }, timeoutMs);
 
@@ -66,7 +72,11 @@ function execBackend(
     child.on("error", (err) => {
       clearTimeout(timer);
       events.end();
-      resolve({ code: null, stdout, stderr: stderr + String(err), timedOut });
+      const friendly =
+        (err as NodeJS.ErrnoException).code === "ENOENT"
+          ? `命令 ${binary} 未找到（未安装或不在 PATH）。`
+          : String(err);
+      resolve({ code: null, stdout, stderr: stderr + friendly, timedOut });
     });
     if (stdin !== undefined) {
       child.stdin.write(stdin);
@@ -75,21 +85,63 @@ function execBackend(
   });
 }
 
-function setupWorktree(runId: string, sourceCwd: string): string | undefined {
+function setupWorktree(
+  runId: string,
+  sourceCwd: string,
+): { wtDir: string; warnings: string[] } | undefined {
   const wtDir = path.join(paths.home, "worktrees", runId);
+  const warnings: string[] = [];
   try {
     execFileSync("git", ["-C", sourceCwd, "rev-parse", "--git-dir"], { stdio: "pipe" });
     fs.mkdirSync(path.dirname(wtDir), { recursive: true });
     execFileSync("git", ["-C", sourceCwd, "worktree", "add", "--detach", wtDir], { stdio: "pipe" });
-    return wtDir;
   } catch {
     return undefined; // 非 git 目录：edit 任务直接在原地跑（result 会带 warning）
   }
+
+  // 物化未提交改动：worktree add 只快照 HEAD，用户正在写的代码必须同步过去，
+  // 否则被调模型评审/修改的是旧代码（实测踩过：新文件对被调模型完全不可见）
+  try {
+    const dirty = execFileSync("git", ["-C", sourceCwd, "status", "--porcelain"], { encoding: "utf8" });
+    if (dirty.trim()) {
+      const diff = execFileSync("git", ["-C", sourceCwd, "diff", "HEAD", "--binary"], {
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      if (diff.trim()) {
+        execFileSync("git", ["-C", wtDir, "apply", "--binary", "--whitespace=nowarn"], { input: diff, stdio: ["pipe", "pipe", "pipe"] });
+      }
+      const untracked = execFileSync(
+        "git",
+        ["-C", sourceCwd, "ls-files", "--others", "--exclude-standard", "-z"],
+        { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+      )
+        .split("\0")
+        .filter(Boolean);
+      for (const rel of untracked) {
+        const dest = path.join(wtDir, rel);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(path.join(sourceCwd, rel), dest);
+      }
+      // 快照提交：让 collectPatch 的 diff 基线是「用户当前状态」，patch 只包含被调模型的改动
+      execFileSync("git", ["-C", wtDir, "add", "-A"], { stdio: "pipe" });
+      execFileSync(
+        "git",
+        ["-C", wtDir, "-c", "user.name=ywcrew", "-c", "user.email=snapshot@ywcrew.local", "commit", "-m", "ywcrew: dirty state snapshot", "--no-verify", "--quiet"],
+        { stdio: "pipe" },
+      );
+    }
+  } catch (err) {
+    warnings.push(`未提交改动同步到 worktree 失败（被调模型看到的是 HEAD 版本）：${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
+  }
+  return { wtDir, warnings };
 }
 
 function collectPatch(runId: string, wtDir: string): string | undefined {
   try {
-    const patch = execFileSync("git", ["-C", wtDir, "diff", "HEAD"], {
+    // add -N（intent-to-add）让被调模型新建的未跟踪文件也进入 diff
+    execFileSync("git", ["-C", wtDir, "add", "-A", "-N"], { stdio: "pipe" });
+    const patch = execFileSync("git", ["-C", wtDir, "diff", "HEAD", "--binary"], {
       encoding: "utf8",
       maxBuffer: 32 * 1024 * 1024,
     });
@@ -136,11 +188,16 @@ export async function runWorker(runId: string): Promise<void> {
   const adapter = getAdapter(backend);
   const backendCfg = config.backends[backend];
 
+  // 0) 先登记进程身份 + 排队心跳：worker 若在排队期被杀，readRun 才能判死回收
+  updateRun(runId, { workerPid: process.pid, workerIdentity: processIdentity(process.pid) });
+  writeHeartbeat(runId);
+
   // 1) 排队获取并发 slot（backend 级 + 全局）
   const deadline = Date.now() + SLOT_WAIT_MAX_MS;
   let backendSlot: string | undefined;
   let globalSlot: string | undefined;
   while (Date.now() < deadline) {
+    writeHeartbeat(runId);
     backendSlot = tryAcquireSlot(backend, backendCfg?.maxParallel ?? 2);
     if (backendSlot) {
       globalSlot = tryAcquireSlot("global", config.defaults.maxParallelGlobal);
@@ -187,9 +244,12 @@ export async function runWorker(runId: string): Promise<void> {
     } else {
       const needsIsolation = spec.mode === "edit" || !adapter.capabilities.nativeReadOnly;
       if (needsIsolation) {
-        wtDir = setupWorktree(runId, sourceCwd);
-        if (wtDir) cwd = wtDir;
-        else if (spec.mode === "edit") warnings.push("非 git 目录，edit 任务未做 worktree 隔离");
+        const wt = setupWorktree(runId, sourceCwd);
+        if (wt) {
+          wtDir = wt.wtDir;
+          cwd = wtDir;
+          warnings.push(...wt.warnings);
+        } else if (spec.mode === "edit") warnings.push("非 git 目录，edit 任务未做 worktree 隔离");
         else warnings.push(`${backend} 无原生只读档且非 git 目录，只读任务仅靠 prompt 约束`);
       }
     }
@@ -278,11 +338,14 @@ export async function runWorker(runId: string): Promise<void> {
       });
       return;
     }
-    if (outcome.code !== 0 && !text.trim()) {
+    // 任何未被归类的非零退出（含 spawn error 的 null）都是失败；
+    // stdout 有文本只作为诊断线索，绝不能把失败运行包装成 ok
+    if (outcome.code !== 0) {
       writeResult(runId, {
         status: "failed",
-        summary: `${backend} 退出码 ${outcome.code}。stderr 摘要：${outcome.stderr.slice(0, 500)}`,
+        summary: `${backend} 退出码 ${outcome.code ?? "null（进程启动失败）"}。stderr：${outcome.stderr.slice(0, 500)}${text.trim() ? `\n中断前的输出片段：${text.slice(0, 1000)}` : ""}`,
         evidence: [],
+        session_ref: sessionRef,
         warnings,
       });
       return;

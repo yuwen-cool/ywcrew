@@ -106,7 +106,7 @@ export interface RenderOptions {
   omitContract?: boolean;
 }
 
-/** 渲染发给被调后端的完整 prompt：五段式 + 历史 + 文件 + 契约 */
+/** 渲染发给被调后端的完整 prompt：五段式 + 环境声明 + 历史 + 文件 + 契约 */
 export function renderPrompt(spec: TaskSpec, bundle: BundleResult, opts: RenderOptions = {}): string {
   const t = spec.task;
   const parts: string[] = [];
@@ -115,6 +115,17 @@ export function renderPrompt(spec: TaskSpec, bundle: BundleResult, opts: RenderO
   if (t.locations) parts.push(`## 关键位置\n${t.locations}`);
   parts.push(`## 任务目标\n${t.objective}`);
   if (t.constraints) parts.push(`## 边界约束\n${t.constraints}`);
+
+  // 环境声明：被调的是 agentic CLI（可自行探索工作目录），不是一次性问答；
+  // mode 行为约束在 prompt 层再声明一遍，与权限 flag / worktree 隔离形成双保险
+  const modeStatement =
+    spec.mode === "edit"
+      ? "本次任务允许改代码：直接在工作目录中修改（这是隔离的 git 工作副本，改动会以 patch 收集交付，不会直接落到用户仓库）。完成后自行确认改动可通过构建/测试。"
+      : "本次任务只读：不得修改、创建或删除任何文件，不得执行有副作用的命令。";
+  parts.push(
+    `## 执行环境\n你以 agentic 方式运行在项目工作目录中。下方「参考文件」只是发起方挑选的起点，需要更多信息时优先自行读取工作目录中的其他文件，而不是急于求助。${modeStatement}`,
+  );
+
   if (opts.historyBlock) parts.push(`## 此前的讨论线程\n${opts.historyBlock}`);
   if (bundle.files.length > 0) {
     const fileBlocks = bundle.files
@@ -122,6 +133,12 @@ export function renderPrompt(spec: TaskSpec, bundle: BundleResult, opts: RenderO
       .join("\n\n");
     parts.push(`## 参考文件（共 ${bundle.files.length} 个）\n${fileBlocks}`);
   }
-  parts.push(t.output_contract ? `## 输出要求\n${t.output_contract}` : RESULT_CONTRACT_INSTRUCTIONS);
+
+  // JSON 结果契约永远保留（worker 依赖它做结构化解析）；
+  // 宿主的 output_contract 描述的是 summary 的内容组织形态，两者叠加而非互斥
+  const contract = t.output_contract
+    ? `${RESULT_CONTRACT_INSTRUCTIONS}\n\n其中 summary 字段的内容按以下要求组织：\n${t.output_contract}`
+    : RESULT_CONTRACT_INSTRUCTIONS;
+  parts.push(contract);
   return parts.join("\n\n");
 }

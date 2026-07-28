@@ -46,6 +46,55 @@ describe("renderPrompt", () => {
     expect(prompt).toContain("=== FILE: src/a.ts ===");
     expect(prompt).toContain("need_more_context");
   });
+
+  it("read-only 模式带只读声明与 agentic 环境说明", () => {
+    const spec = TaskSpecSchema.parse({
+      backend: "kimi",
+      mode: "read-only",
+      task: {
+        briefing: "TypeScript 项目，pnpm build 构建，vitest 测试框架。",
+        objective: "评审 src/a.ts 的导出设计是否合理，给出结论。",
+      },
+      files: [],
+      cwd: proj,
+    });
+    const prompt = renderPrompt(spec, bundleFiles(spec, 100_000));
+    expect(prompt).toContain("只读：不得修改");
+    expect(prompt).toContain("agentic 方式运行在项目工作目录");
+  });
+
+  it("edit 模式带改代码声明", () => {
+    const spec = TaskSpecSchema.parse({
+      backend: "codex",
+      mode: "edit",
+      task: {
+        briefing: "TypeScript 项目，pnpm build 构建，vitest 测试框架。",
+        objective: "把 src/a.ts 的导出常量重命名为 alpha 并同步引用。",
+      },
+      files: [],
+      cwd: proj,
+    });
+    const prompt = renderPrompt(spec, bundleFiles(spec, 100_000));
+    expect(prompt).toContain("允许改代码");
+    expect(prompt).toContain("patch 收集交付");
+  });
+
+  it("自定义 output_contract 叠加在 JSON 契约之上而非替换", () => {
+    const spec = TaskSpecSchema.parse({
+      backend: "kimi",
+      task: {
+        briefing: "TypeScript 项目，pnpm build 构建，vitest 测试框架。",
+        objective: "评审 src/a.ts 的导出设计是否合理，给出结论。",
+        output_contract: "按严重级别排序的问题列表",
+      },
+      files: [],
+      cwd: proj,
+    });
+    const prompt = renderPrompt(spec, bundleFiles(spec, 100_000));
+    expect(prompt).toContain('"summary"'); // JSON 契约仍在
+    expect(prompt).toContain("need_more_context");
+    expect(prompt).toContain("按严重级别排序的问题列表"); // 用户契约嵌入 summary 要求
+  });
 });
 
 describe("planContinuation 路由", () => {

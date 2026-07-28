@@ -12,6 +12,7 @@ interface Lease {
 }
 
 const LEASE_TTL_MS = 180_000; // 3 分钟未续租视为失效（宽容系统休眠）
+const LEASE_INIT_GRACE_MS = 15_000; // slotDir 刚建、lease.json 尚未落盘的窗口，不许判死
 
 /** 进程身份 = pid + 启动时间，防 PID 复用误判 */
 export function processIdentity(pid: number): string | undefined {
@@ -23,13 +24,10 @@ export function processIdentity(pid: number): string | undefined {
 }
 
 function leaseAlive(lease: Lease): boolean {
-  if (Date.now() - lease.renewedAt < LEASE_TTL_MS) {
-    const identity = processIdentity(lease.pid);
-    if (identity && identity === lease.pidStartedAt) return true;
-  }
-  // TTL 过期或进程身份不符 → 死锁
+  // 进程身份仍匹配 → 持有者活着，即使 TTL 过期（系统休眠/长时间同步阻塞）也不抢占；
+  // 悬挂 worker 由其自身的硬超时与 readRun 回收兜底
   const identity = processIdentity(lease.pid);
-  return identity === lease.pidStartedAt && Date.now() - lease.renewedAt < LEASE_TTL_MS;
+  return identity !== undefined && identity === lease.pidStartedAt;
 }
 
 /**
@@ -49,6 +47,14 @@ export function tryAcquireSlot(scope: string, maxSlots: number): string | undefi
       // 被占用 → 检查是否僵尸 lease
       const lease = readJson<Lease>(path.join(slotDir, "lease.json"));
       if (lease && leaseAlive(lease)) continue;
+      // 无 lease.json：可能是别的进程刚 mkdir、还没来得及写租约，给初始化宽限期
+      if (!lease) {
+        try {
+          if (Date.now() - fs.statSync(slotDir).mtimeMs < LEASE_INIT_GRACE_MS) continue;
+        } catch {
+          continue; // 目录已消失 → 下轮重试
+        }
+      }
       // 回收僵尸：先抢占标记再复用（rename 原子性保证只有一个回收者成功）
       try {
         const reclaimMark = path.join(scopeDir, `reclaim-${i}-${process.pid}-${Date.now()}`);
@@ -78,5 +84,8 @@ export function renewSlot(slotDir: string): void {
 }
 
 export function releaseSlot(slotDir: string): void {
+  // 只释放自己持有的 slot：若已被回收并由新进程持有，绝不能删别人的租约
+  const lease = readJson<Lease>(path.join(slotDir, "lease.json"));
+  if (lease && lease.pid !== process.pid) return;
   fs.rmSync(slotDir, { recursive: true, force: true });
 }

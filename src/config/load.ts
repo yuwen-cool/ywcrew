@@ -6,7 +6,13 @@ import { atomicWriteJson, readJson } from "../core/store.js";
 export function loadConfig(): Config {
   const raw = readJson<unknown>(paths.config);
   if (!raw) return ConfigSchema.parse({});
-  return ConfigSchema.parse(raw);
+  // 绝不因解析失败而静默重置用户配置：报清楚路径让用户自己修
+  const parsed = ConfigSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
+    throw new Error(`配置文件 ${paths.config} 不合法（未被覆盖，请手动修正或删除后重新 ywcrew init）：\n${issues}`);
+  }
+  return parsed.data;
 }
 
 export function saveConfig(config: Config): void {

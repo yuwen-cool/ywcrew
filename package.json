@@ -13,13 +13,34 @@
   "engines": {
     "node": ">=20"
   },
+  "keywords": [
+    "ai",
+    "agents",
+    "orchestration",
+    "claude-code",
+    "codex",
+    "grok",
+    "kimi",
+    "antigravity",
+    "subagent",
+    "cli"
+  ],
   "scripts": {
     "build": "tsup src/cli.ts --format esm --clean --sourcemap",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuwen-cool/ywcrew.git"
+  },
+  "homepage": "https://github.com/yuwen-cool/ywcrew#readme",
+  "bugs": {
+    "url": "https://github.com/yuwen-cool/ywcrew/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^15.0.0",

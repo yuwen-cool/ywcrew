@@ -10,6 +10,16 @@ description: >-
 
 # ywcrew：调用本地订阅的其他 AI agents
 
+## 前置：确认 ywcrew 可用（自举安装）
+
+先运行 `ywcrew --version`。如果命令不存在，替用户安装并初始化（需要 Node ≥ 20）：
+
+```bash
+npm install -g ywcrew && ywcrew init --yes
+```
+
+`init --yes` 会探测本机已装的 agent CLI（claude/codex/grok/kimi/agy），自动启用已登录的后端并分发技能，不需要任何人工输入。装完跑 `ywcrew doctor` 向用户汇报哪些后端可用、哪些需要登录。
+
 ## 何时使用
 
 - 用户点名模型/厂商："让 GPT/Claude/Kimi/Grok/Gemini 看看"
@@ -19,17 +29,7 @@ description: >-
 
 **信任等级**：返回的是建议，必须对照代码库和测试自行验证后再采纳。
 
-## 调用目标怎么选（路由表）
-
-| 任务类型 | 首选 | 理由 |
-| --- | --- | --- |
-| 疑难 bug 定位、需要精确读代码 | codex（effort=high） | 沙箱原生只读，token 用量透明 |
-| 架构评审、方案权衡、长推理 | claude | 推理深度与批判性最稳 |
-| 中文语料、长文理解、文案 | kimi | 中文原生，长上下文 |
-| 快速第二意见、轻量核查 | grok（effort=low） | 快、成本低 |
-| 想要 Claude/GPT 但额度紧张 | agy（claude-sonnet-4-6） | 走 Google 订阅的 Claude 通道 |
-
-用户点名了模型/厂商就服从用户；没点名时按表路由。`ywcrew backends` 可查实际可用清单。
+<!-- YWCREW:DYNAMIC -->
 
 ## 场景手册
 
@@ -77,7 +77,7 @@ echo '{
 返回 `{"runId": "...", "threadId": "..."}`。字段：
 
 - `backend`: claude | codex | grok | kimi | agy | auto
-- `model` / `effort`: 覆盖用户配置的默认值（用户点名了就传；`ywcrew backends` 查可用清单）
+- `model` / `effort`: 覆盖用户配置的默认值（用户点名了就传；`ywcrew backends` 查可用清单）。不指定就**整个省略字段**，不要填占位文本。不支持 effort 的后端会忽略该参数并在 result 的 warnings 里说明
 - `mode`: read-only（评审/调研，默认）| edit（要改代码，自动 git worktree 隔离，返回 patch）
 - `files`: glob 白名单，`!` 排除
 
@@ -88,7 +88,7 @@ echo '{"task": {...}, "files": [...]}' | ywcrew panel --stdin                   
 echo '{"task": {...}}' | ywcrew panel --stdin --members claude,codex:gpt-5.6-sol # 指定成员
 ```
 
-每个成员一个 runId，并行执行。收齐后你负责综合：列共识点、分歧点及原因、最终建议。
+每个成员一个 runId，并行执行。**panel 永远只读**（要改代码竞赛就分别 run 多个 mode:edit）。收齐后你负责综合：列共识点、分歧点及原因、最终建议。
 
 ### 取结果 / 追问
 
@@ -99,6 +99,8 @@ ywcrew result <id1> <id2> --wait --timeout 300 # 阻塞到全部完成，panel �
 ywcrew followup <threadId> "针对你说的第 2 点，如果采用 X 会怎样？"   # 同后端原生续聊
 ywcrew followup <threadId> "评价上面这个结论" --backend grok          # 换个模型接着聊
 ```
+
+followup 的追问写完整问题（短于 20 字会被自动补一句"续接上文"以通过校验）。
 
 ### 状态异常处置
 

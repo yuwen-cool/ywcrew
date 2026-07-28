@@ -70,11 +70,13 @@ export function readTask(runId: string): TaskSpec | undefined {
  * 读取 run 状态，惰性回收僵死 worker：
  * 心跳超时 + 进程身份（pid+启动时间）不再匹配 → kill 进程组并标 failed。
  */
+const QUEUED_STALE_MS = 40 * 60_000; // worker 排队上限 30 分钟 + 余量
+
 export function readRun(runId: string): RunMeta | undefined {
   const dir = paths.runDir(runId);
   const meta = readJson<RunMeta>(path.join(dir, "meta.json"));
   if (!meta) return undefined;
-  if (meta.state !== "running") return meta;
+  if (meta.state !== "running" && meta.state !== "queued") return meta;
 
   let heartbeatAt = 0;
   try {
@@ -82,17 +84,34 @@ export function readRun(runId: string): RunMeta | undefined {
   } catch {
     heartbeatAt = meta.updatedAt;
   }
+
+  // queued 卡死：worker 从未拉起（spawn 失败/排队时被杀），永远不会有人来更新状态
+  if (meta.state === "queued") {
+    const staleFor = Date.now() - Math.max(heartbeatAt, meta.createdAt);
+    if (staleFor < QUEUED_STALE_MS) return meta;
+    if (meta.workerPid && meta.workerIdentity && processIdentity(meta.workerPid) === meta.workerIdentity)
+      return meta; // 排队进程还活着
+    updateRun(runId, { state: "failed" });
+    if (!readResult(runId)) {
+      writeResult(runId, {
+        status: "failed",
+        summary: "worker 未能启动或排队期间消亡（run 长期停留在 queued）。检查 worker.log 排查原因。",
+        evidence: [],
+        warnings: [],
+      });
+      updateRun(runId, { state: "failed" });
+    }
+    return readJson<RunMeta>(path.join(dir, "meta.json"));
+  }
+
   if (Date.now() - heartbeatAt < HEARTBEAT_STALE_MS) return meta;
 
-  // 心跳过期：核验进程身份后再判死（防 PID 复用 + 容忍系统休眠后的活进程）
+  // 心跳过期：核验进程身份后再判死。
+  // 身份匹配 → 活着（可能刚从休眠恢复），不回收；
+  // 身份不匹配 → PID 已被无关进程复用，绝不能发信号（会误杀无辜进程组），只标记失败。
   if (meta.workerPid && meta.workerIdentity) {
     const identity = processIdentity(meta.workerPid);
-    if (identity === meta.workerIdentity) return meta; // 进程还活着（可能刚睡醒），不回收
-    try {
-      if (identity) process.kill(-meta.workerPid, "SIGKILL"); // 杀整个进程组
-    } catch {
-      /* 已死 */
-    }
+    if (identity === meta.workerIdentity) return meta;
   }
   updateRun(runId, { state: "failed" });
   const existing = readResult(runId);
