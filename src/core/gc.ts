@@ -68,7 +68,8 @@ export function runGc(opts: { days?: number; threadDays?: number } = {}): GcRepo
     }
   }
 
-  // 第三遍：收集存活线程仍在引用的 worktree（原生续聊必须回到原目录执行）
+  // 第三遍：收集存活线程仍在引用的 worktree/shadow 目录（原生续聊必须回到原目录执行）
+  const shadowRoot = path.join(paths.home, "shadow");
   const referencedWts = new Set<string>();
   if (fs.existsSync(paths.threads)) {
     for (const f of fs.readdirSync(paths.threads)) {
@@ -77,7 +78,8 @@ export function runGc(opts: { days?: number; threadDays?: number } = {}): GcRepo
           turns?: Array<{ cwd?: string }>;
         };
         for (const turn of thread.turns ?? []) {
-          if (turn.cwd?.startsWith(wtRoot + path.sep)) referencedWts.add(path.basename(turn.cwd));
+          if (turn.cwd?.startsWith(wtRoot + path.sep) || turn.cwd?.startsWith(shadowRoot + path.sep))
+            referencedWts.add(path.basename(turn.cwd));
         }
       } catch {
         /* skip */
@@ -85,19 +87,27 @@ export function runGc(opts: { days?: number; threadDays?: number } = {}): GcRepo
     }
   }
 
-  // 第四遍：删 run 目录 + 未被引用的 worktree
+  // 第四遍：删 run 目录 + 未被引用的 worktree/shadow
   for (const runId of runsToRemove) {
-    if (!referencedWts.has(runId)) removeWorktree(runId, report);
+    if (!referencedWts.has(runId)) {
+      removeWorktree(runId, report);
+      fs.rmSync(path.join(shadowRoot, runId), { recursive: true, force: true });
+    }
     fs.rmSync(paths.runDir(runId), { recursive: true, force: true });
     report.runsRemoved.push(runId);
   }
 
-  // 孤儿 worktree（run 目录已不在，且无线程引用）
-  if (fs.existsSync(wtRoot)) {
-    for (const runId of fs.readdirSync(wtRoot)) {
+  // 孤儿 worktree / shadow（run 目录已不在，且无线程引用）
+  for (const root of [wtRoot, shadowRoot]) {
+    if (!fs.existsSync(root)) continue;
+    for (const runId of fs.readdirSync(root)) {
       if (referencedWts.has(runId)) continue;
-      if (!fs.existsSync(paths.runDir(runId)) && fs.statSync(path.join(wtRoot, runId)).mtimeMs < runCutoff) {
-        removeWorktree(runId, report);
+      if (!fs.existsSync(paths.runDir(runId)) && fs.statSync(path.join(root, runId)).mtimeMs < runCutoff) {
+        if (root === wtRoot) removeWorktree(runId, report);
+        else {
+          fs.rmSync(path.join(root, runId), { recursive: true, force: true });
+          report.worktreesRemoved.push(runId);
+        }
       }
     }
   }

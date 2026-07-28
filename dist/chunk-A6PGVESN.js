@@ -24,6 +24,7 @@ var TaskSpecSchema = z.object({
   model: z.string().optional().describe("\u8986\u76D6\u9ED8\u8BA4\u6A21\u578B\uFF0C\u4EFB\u610F\u5B57\u7B26\u4E32\uFF08\u672A\u77E5\u540D\u900F\u4F20+warning\uFF09"),
   effort: EffortSchema.optional(),
   mode: TaskModeSchema.default("read-only"),
+  strict: z.boolean().default(false).describe("\u4E25\u683C\u8BFB\u53D6\u9694\u79BB\uFF1A\u88AB\u8C03\u6A21\u578B\u5728\u53EA\u542B files \u767D\u540D\u5355\u6587\u4EF6\u7684\u5F71\u5B50\u76EE\u5F55\u4E2D\u6267\u884C\uFF0C\u8BFB\u4E0D\u5230\u9879\u76EE\u5176\u4ED6\u6587\u4EF6\uFF08\u4EC5 read-only \u6709\u6548\uFF09"),
   task: TaskBodySchema,
   files: z.array(z.string()).default([]).describe("glob \u767D\u540D\u5355\uFF0C! \u524D\u7F00\u6392\u9664"),
   thread: z.string().optional().describe("\u7EED\u63A5\u65E2\u6709\u7EBF\u7A0B\u7684 threadId"),
@@ -43,7 +44,9 @@ var ResultStatusSchema = z.enum([
 var EvidenceSchema = z.object({
   file: z.string(),
   lines: z.string().optional().describe("\u5982 12-40"),
-  claim: z.string()
+  claim: z.string(),
+  verified: z.boolean().optional().describe("worker \u81EA\u52A8\u6838\u9A8C\uFF1A\u6587\u4EF6\u5B58\u5728\u4E14\u884C\u53F7\u8303\u56F4\u5408\u6CD5"),
+  verify_note: z.string().optional().describe("\u6838\u9A8C\u5931\u8D25\u539F\u56E0\uFF08\u6587\u4EF6\u4E0D\u5B58\u5728/\u884C\u53F7\u8D8A\u754C\uFF09")
 });
 var ResultContractSchema = z.object({
   status: ResultStatusSchema,
@@ -146,4 +149,4 @@ export {
   saveCapabilities,
   ensureHome
 };
-//# sourceMappingURL=chunk-CNHRP3AD.js.map
+//# sourceMappingURL=chunk-A6PGVESN.js.map

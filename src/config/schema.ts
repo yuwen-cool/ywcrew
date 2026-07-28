@@ -34,6 +34,10 @@ export const TaskSpecSchema = z.object({
   model: z.string().optional().describe("覆盖默认模型，任意字符串（未知名透传+warning）"),
   effort: EffortSchema.optional(),
   mode: TaskModeSchema.default("read-only"),
+  strict: z
+    .boolean()
+    .default(false)
+    .describe("严格读取隔离：被调模型在只含 files 白名单文件的影子目录中执行，读不到项目其他文件（仅 read-only 有效）"),
   task: TaskBodySchema,
   files: z.array(z.string()).default([]).describe("glob 白名单，! 前缀排除"),
   thread: z.string().optional().describe("续接既有线程的 threadId"),
@@ -58,6 +62,8 @@ export const EvidenceSchema = z.object({
   file: z.string(),
   lines: z.string().optional().describe("如 12-40"),
   claim: z.string(),
+  verified: z.boolean().optional().describe("worker 自动核验：文件存在且行号范围合法"),
+  verify_note: z.string().optional().describe("核验失败原因（文件不存在/行号越界）"),
 });
 
 /** 回传宿主的结构化结论。summary 控制在 ~2k token 内，过程日志绝不回灌。 */

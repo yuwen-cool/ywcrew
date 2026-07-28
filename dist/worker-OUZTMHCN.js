@@ -6,7 +6,7 @@ import {
 } from "./chunk-JTDLTURC.js";
 import {
   loadConfig
-} from "./chunk-CNHRP3AD.js";
+} from "./chunk-A6PGVESN.js";
 import {
   processIdentity,
   readRun,
@@ -23,8 +23,8 @@ import {
 } from "./chunk-QEBUZYAA.js";
 
 // src/core/worker.ts
-import fs3 from "fs";
-import path3 from "path";
+import fs5 from "fs";
+import path5 from "path";
 import { spawn, execFileSync } from "child_process";
 
 // src/context/builder.ts
@@ -172,10 +172,9 @@ ${t.objective}`);
   if (t.constraints) parts.push(`## \u8FB9\u754C\u7EA6\u675F
 ${t.constraints}`);
   const modeStatement = spec.mode === "edit" ? "\u672C\u6B21\u4EFB\u52A1\u5141\u8BB8\u6539\u4EE3\u7801\uFF1A\u76F4\u63A5\u5728\u5DE5\u4F5C\u76EE\u5F55\u4E2D\u4FEE\u6539\uFF08\u8FD9\u662F\u9694\u79BB\u7684 git \u5DE5\u4F5C\u526F\u672C\uFF0C\u6539\u52A8\u4F1A\u4EE5 patch \u6536\u96C6\u4EA4\u4ED8\uFF0C\u4E0D\u4F1A\u76F4\u63A5\u843D\u5230\u7528\u6237\u4ED3\u5E93\uFF09\u3002\u5B8C\u6210\u540E\u81EA\u884C\u786E\u8BA4\u6539\u52A8\u53EF\u901A\u8FC7\u6784\u5EFA/\u6D4B\u8BD5\u3002" : "\u672C\u6B21\u4EFB\u52A1\u53EA\u8BFB\uFF1A\u4E0D\u5F97\u4FEE\u6539\u3001\u521B\u5EFA\u6216\u5220\u9664\u4EFB\u4F55\u6587\u4EF6\uFF0C\u4E0D\u5F97\u6267\u884C\u6709\u526F\u4F5C\u7528\u7684\u547D\u4EE4\u3002";
-  parts.push(
-    `## \u6267\u884C\u73AF\u5883
-\u4F60\u4EE5 agentic \u65B9\u5F0F\u8FD0\u884C\u5728\u9879\u76EE\u5DE5\u4F5C\u76EE\u5F55\u4E2D\u3002\u4E0B\u65B9\u300C\u53C2\u8003\u6587\u4EF6\u300D\u53EA\u662F\u53D1\u8D77\u65B9\u6311\u9009\u7684\u8D77\u70B9\uFF0C\u9700\u8981\u66F4\u591A\u4FE1\u606F\u65F6\u4F18\u5148\u81EA\u884C\u8BFB\u53D6\u5DE5\u4F5C\u76EE\u5F55\u4E2D\u7684\u5176\u4ED6\u6587\u4EF6\uFF0C\u800C\u4E0D\u662F\u6025\u4E8E\u6C42\u52A9\u3002${modeStatement}`
-  );
+  const envStatement = spec.strict && spec.mode !== "edit" ? `\u4F60\u4EE5 agentic \u65B9\u5F0F\u8FD0\u884C\u5728\u4E00\u4E2A\u4E25\u683C\u9694\u79BB\u76EE\u5F55\u4E2D\uFF1A\u8FD9\u91CC\u53EA\u7269\u5316\u4E86\u4E0B\u65B9\u300C\u53C2\u8003\u6587\u4EF6\u300D\uFF0C\u9879\u76EE\u7684\u5176\u4ED6\u6587\u4EF6\u4E0D\u5B58\u5728\u4E8E\u6B64\uFF0C\u4E0D\u8981\u5C1D\u8BD5\u8BFB\u53D6\u767D\u540D\u5355\u4EE5\u5916\u7684\u5185\u5BB9\uFF1B\u786E\u9700\u66F4\u591A\u6587\u4EF6\u65F6\u7528 need_more_context \u8BF7\u6C42\u3002${modeStatement}` : `\u4F60\u4EE5 agentic \u65B9\u5F0F\u8FD0\u884C\u5728\u9879\u76EE\u5DE5\u4F5C\u76EE\u5F55\u4E2D\u3002\u4E0B\u65B9\u300C\u53C2\u8003\u6587\u4EF6\u300D\u53EA\u662F\u53D1\u8D77\u65B9\u6311\u9009\u7684\u8D77\u70B9\uFF0C\u9700\u8981\u66F4\u591A\u4FE1\u606F\u65F6\u4F18\u5148\u81EA\u884C\u8BFB\u53D6\u5DE5\u4F5C\u76EE\u5F55\u4E2D\u7684\u5176\u4ED6\u6587\u4EF6\uFF0C\u800C\u4E0D\u662F\u6025\u4E8E\u6C42\u52A9\u3002${modeStatement}`;
+  parts.push(`## \u6267\u884C\u73AF\u5883
+${envStatement}`);
   if (opts.historyBlock) parts.push(`## \u6B64\u524D\u7684\u8BA8\u8BBA\u7EBF\u7A0B
 ${opts.historyBlock}`);
   if (bundle.files.length > 0) {
@@ -193,6 +192,51 @@ ${t.output_contract}` : RESULT_CONTRACT_INSTRUCTIONS;
   return parts.join("\n\n");
 }
 
+// src/core/shadow.ts
+import fs3 from "fs";
+import path3 from "path";
+function createShadowDir(runId, files) {
+  const dir = path3.join(paths.home, "shadow", runId);
+  fs3.rmSync(dir, { recursive: true, force: true });
+  fs3.mkdirSync(dir, { recursive: true });
+  for (const f of files) {
+    const dest = path3.join(dir, f.rel);
+    if (!path3.resolve(dest).startsWith(path3.resolve(dir) + path3.sep)) continue;
+    fs3.mkdirSync(path3.dirname(dest), { recursive: true });
+    fs3.writeFileSync(dest, f.content);
+  }
+  return dir;
+}
+
+// src/core/evidence.ts
+import fs4 from "fs";
+import path4 from "path";
+function verifyEvidence(evidence, cwd) {
+  return evidence.map((e) => {
+    const abs = path4.resolve(cwd, e.file);
+    if (!abs.startsWith(path4.resolve(cwd) + path4.sep)) {
+      return { ...e, verified: false, verify_note: "\u6587\u4EF6\u8DEF\u5F84\u5728\u5DE5\u4F5C\u76EE\u5F55\u4E4B\u5916" };
+    }
+    let content;
+    try {
+      content = fs4.readFileSync(abs, "utf8");
+    } catch {
+      return { ...e, verified: false, verify_note: "\u6587\u4EF6\u4E0D\u5B58\u5728\u6216\u4E0D\u53EF\u8BFB" };
+    }
+    if (e.lines) {
+      const m = e.lines.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+      if (!m) return { ...e, verified: false, verify_note: `\u884C\u53F7\u683C\u5F0F\u65E0\u6CD5\u89E3\u6790: ${e.lines}` };
+      const start = Number(m[1]);
+      const end = m[2] ? Number(m[2]) : start;
+      const total = content.split("\n").length;
+      if (start < 1 || end < start || end > total) {
+        return { ...e, verified: false, verify_note: `\u884C\u53F7\u8D8A\u754C\uFF08\u6587\u4EF6\u5171 ${total} \u884C\uFF09` };
+      }
+    }
+    return { ...e, verified: true };
+  });
+}
+
 // src/core/worker.ts
 var HEARTBEAT_INTERVAL_MS = 5e3;
 var SLOT_WAIT_INTERVAL_MS = 3e3;
@@ -205,7 +249,7 @@ function execBackend(binary, argv, stdin, cwd, timeoutMs, eventsFile) {
     const child = spawn(binary, argv, { cwd, stdio: ["pipe", "pipe", "pipe"], detached: true });
     let stdout = "";
     let stderr = "";
-    const events = fs3.createWriteStream(eventsFile, { flags: "a" });
+    const events = fs5.createWriteStream(eventsFile, { flags: "a" });
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
@@ -245,11 +289,11 @@ function execBackend(binary, argv, stdin, cwd, timeoutMs, eventsFile) {
   });
 }
 function setupWorktree(runId, sourceCwd) {
-  const wtDir = path3.join(paths.home, "worktrees", runId);
+  const wtDir = path5.join(paths.home, "worktrees", runId);
   const warnings = [];
   try {
     execFileSync("git", ["-C", sourceCwd, "rev-parse", "--git-dir"], { stdio: "pipe" });
-    fs3.mkdirSync(path3.dirname(wtDir), { recursive: true });
+    fs5.mkdirSync(path5.dirname(wtDir), { recursive: true });
     execFileSync("git", ["-C", sourceCwd, "worktree", "add", "--detach", wtDir], { stdio: "pipe" });
   } catch {
     return void 0;
@@ -270,9 +314,9 @@ function setupWorktree(runId, sourceCwd) {
         { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }
       ).split("\0").filter(Boolean);
       for (const rel of untracked) {
-        const dest = path3.join(wtDir, rel);
-        fs3.mkdirSync(path3.dirname(dest), { recursive: true });
-        fs3.copyFileSync(path3.join(sourceCwd, rel), dest);
+        const dest = path5.join(wtDir, rel);
+        fs5.mkdirSync(path5.dirname(dest), { recursive: true });
+        fs5.copyFileSync(path5.join(sourceCwd, rel), dest);
       }
       execFileSync("git", ["-C", wtDir, "add", "-A"], { stdio: "pipe" });
       execFileSync(
@@ -294,8 +338,8 @@ function collectPatch(runId, wtDir) {
       maxBuffer: 32 * 1024 * 1024
     });
     if (!patch.trim()) return void 0;
-    const patchFile = path3.join(paths.runDir(runId), "changes.patch");
-    fs3.writeFileSync(patchFile, patch);
+    const patchFile = path5.join(paths.runDir(runId), "changes.patch");
+    fs5.writeFileSync(patchFile, patch);
     return patchFile;
   } catch {
     return void 0;
@@ -366,12 +410,29 @@ async function runWorker(runId) {
     });
     writeHeartbeat(runId);
     const continuation = planContinuation(threadId, backend);
-    const sourceCwd = path3.resolve(spec.cwd ?? process.cwd());
+    const sourceCwd = path5.resolve(spec.cwd ?? process.cwd());
+    const bundle = bundleFiles({ files: spec.files, cwd: sourceCwd }, config.defaults.tokenBudget);
+    if (!bundle.ok) {
+      writeResult(runId, {
+        status: "failed",
+        summary: bundle.overBudgetReport,
+        evidence: [],
+        warnings
+      });
+      return;
+    }
+    for (const s of bundle.skipped) {
+      if (s.reason.includes("\u51ED\u636E") || s.reason.includes("\u5BC6\u94A5") || s.reason.includes("\u9003\u9038"))
+        warnings.push(`\u5DF2\u62D2\u7EDD\u9644\u5E26 ${s.rel}\uFF08${s.reason}\uFF09`);
+    }
     let cwd = sourceCwd;
     let wtDir;
-    if (continuation.mode === "native" && continuation.cwd && fs3.existsSync(continuation.cwd)) {
+    if (continuation.mode === "native" && continuation.cwd && fs5.existsSync(continuation.cwd)) {
       cwd = continuation.cwd;
+    } else if (spec.strict && spec.mode === "read-only") {
+      cwd = createShadowDir(runId, bundle.files);
     } else {
+      if (spec.strict) warnings.push("strict \u4EC5\u5BF9 read-only \u4EFB\u52A1\u751F\u6548\uFF0Cedit \u4EFB\u52A1\u8D70 worktree \u9694\u79BB");
       const needsIsolation = spec.mode === "edit" || !adapter.capabilities.nativeReadOnly;
       if (needsIsolation) {
         const wt = setupWorktree(runId, sourceCwd);
@@ -387,33 +448,19 @@ async function runWorker(runId) {
     const effort = adapter.capabilities.supportsEffort ? spec.effort ?? backendCfg?.defaultEffort : void 0;
     if (spec.effort && !adapter.capabilities.supportsEffort)
       warnings.push(`${backend} \u4E0D\u652F\u6301\u601D\u8003\u5F3A\u5EA6\u53C2\u6570\uFF0C\u5DF2\u5FFD\u7565 effort=${spec.effort}`);
-    const bundle = bundleFiles({ files: spec.files, cwd }, config.defaults.tokenBudget);
-    if (!bundle.ok) {
-      writeResult(runId, {
-        status: "failed",
-        summary: bundle.overBudgetReport,
-        evidence: [],
-        warnings
-      });
-      return;
-    }
-    for (const s of bundle.skipped) {
-      if (s.reason.includes("\u51ED\u636E") || s.reason.includes("\u5BC6\u94A5") || s.reason.includes("\u9003\u9038"))
-        warnings.push(`\u5DF2\u62D2\u7EDD\u9644\u5E26 ${s.rel}\uFF08${s.reason}\uFF09`);
-    }
     const prompt = renderPrompt(spec, bundle, {
       historyBlock: continuation.mode === "rebuild" ? continuation.historyBlock : void 0
     });
     const req = { prompt, model, effort, mode: spec.mode, cwd };
     const plan = continuation.mode === "native" ? adapter.planResume(continuation.sessionRef, req) : adapter.planDispatch(req);
-    const eventsFile = path3.join(paths.runDir(runId), "events.ndjson");
+    const eventsFile = path5.join(paths.runDir(runId), "events.ndjson");
     const startedAt = Date.now();
     let outcome = await execBackend(adapter.binary, plan.argv, plan.stdin, cwd, spec.timeoutMs, eventsFile);
     let text = adapter.extractText(outcome.stdout);
     let sessionRef = adapter.extractSessionRef(outcome.stdout);
     let contract = parseContractFromText(text);
     if (contract.needMoreContext && sessionRef) {
-      const extra = bundleFiles({ files: contract.needMoreContext.files, cwd }, config.defaults.tokenBudget);
+      const extra = bundleFiles({ files: contract.needMoreContext.files, cwd: sourceCwd }, config.defaults.tokenBudget);
       if (extra.ok && extra.files.length > 0) {
         const followPrompt = `\u8865\u5145\u4F60\u8BF7\u6C42\u7684\u6587\u4EF6\uFF1A
 
@@ -469,7 +516,7 @@ ${f.content}
     const result = {
       status: contract.result ? "ok" : "contract_violated",
       summary: contract.result?.summary ?? text.slice(0, 6e3),
-      evidence: contract.result?.evidence ?? [],
+      evidence: verifyEvidence(contract.result?.evidence ?? [], cwd),
       confidence: contract.result?.confidence,
       artifacts: patchFile ? { patch: patchFile, files: [] } : void 0,
       usage: { ...adapter.extractUsage?.(outcome.stdout), durationMs },
@@ -507,4 +554,4 @@ ${f.content}
 export {
   runWorker
 };
-//# sourceMappingURL=worker-FZ4NJTV2.js.map
+//# sourceMappingURL=worker-OUZTMHCN.js.map

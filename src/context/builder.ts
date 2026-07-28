@@ -117,14 +117,16 @@ export function renderPrompt(spec: TaskSpec, bundle: BundleResult, opts: RenderO
   if (t.constraints) parts.push(`## 边界约束\n${t.constraints}`);
 
   // 环境声明：被调的是 agentic CLI（可自行探索工作目录），不是一次性问答；
-  // mode 行为约束在 prompt 层再声明一遍，与权限 flag / worktree 隔离形成双保险
+  // mode 行为约束在 prompt 层再声明一遍，与权限 flag / worktree / shadow 隔离形成双保险
   const modeStatement =
     spec.mode === "edit"
       ? "本次任务允许改代码：直接在工作目录中修改（这是隔离的 git 工作副本，改动会以 patch 收集交付，不会直接落到用户仓库）。完成后自行确认改动可通过构建/测试。"
       : "本次任务只读：不得修改、创建或删除任何文件，不得执行有副作用的命令。";
-  parts.push(
-    `## 执行环境\n你以 agentic 方式运行在项目工作目录中。下方「参考文件」只是发起方挑选的起点，需要更多信息时优先自行读取工作目录中的其他文件，而不是急于求助。${modeStatement}`,
-  );
+  const envStatement =
+    spec.strict && spec.mode !== "edit"
+      ? `你以 agentic 方式运行在一个严格隔离目录中：这里只物化了下方「参考文件」，项目的其他文件不存在于此，不要尝试读取白名单以外的内容；确需更多文件时用 need_more_context 请求。${modeStatement}`
+      : `你以 agentic 方式运行在项目工作目录中。下方「参考文件」只是发起方挑选的起点，需要更多信息时优先自行读取工作目录中的其他文件，而不是急于求助。${modeStatement}`;
+  parts.push(`## 执行环境\n${envStatement}`);
 
   if (opts.historyBlock) parts.push(`## 此前的讨论线程\n${opts.historyBlock}`);
   if (bundle.files.length > 0) {

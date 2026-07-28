@@ -79,7 +79,8 @@ echo '{
 - `backend`: claude | codex | grok | kimi | agy | auto
 - `model` / `effort`: 覆盖用户配置的默认值（用户点名了就传；`ywcrew backends` 查可用清单）。不指定就**整个省略字段**，不要填占位文本。不支持 effort 的后端会忽略该参数并在 result 的 warnings 里说明
 - `mode`: read-only（评审/调研，默认）| edit（要改代码，自动 git worktree 隔离，返回 patch）
-- `files`: glob 白名单，`!` 排除
+- `strict`: true 时开启严格读取隔离——被调模型在只含 files 白名单文件的影子目录中执行，读不到项目其他文件。**敏感仓库/含凭据的项目一律加 strict**（仅 read-only 有效）
+- `files`: glob 白名单，`!` 排除；strict 模式下这就是被调模型的全部视野，要圈全
 
 ### 并行多发 / 多模型评审
 
@@ -101,6 +102,11 @@ ywcrew followup <threadId> "评价上面这个结论" --backend grok          # 
 ```
 
 followup 的追问写完整问题（短于 20 字会被自动补一句"续接上文"以通过校验）。
+
+### 结果可信度
+
+- result 里每条 evidence 带 `verified` 标记（worker 自动核验文件存在与行号范围）；`verified: false` 的证据引用前先自行复核
+- 文案/调研类开放任务，采纳前对照原始材料核对事实；被调模型的返回永远是建议
 
 ### 状态异常处置
 

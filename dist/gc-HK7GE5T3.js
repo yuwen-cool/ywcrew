@@ -51,28 +51,38 @@ function runGc(opts = {}) {
       }
     }
   }
+  const shadowRoot = path.join(paths.home, "shadow");
   const referencedWts = /* @__PURE__ */ new Set();
   if (fs.existsSync(paths.threads)) {
     for (const f of fs.readdirSync(paths.threads)) {
       try {
         const thread = JSON.parse(fs.readFileSync(path.join(paths.threads, f), "utf8"));
         for (const turn of thread.turns ?? []) {
-          if (turn.cwd?.startsWith(wtRoot + path.sep)) referencedWts.add(path.basename(turn.cwd));
+          if (turn.cwd?.startsWith(wtRoot + path.sep) || turn.cwd?.startsWith(shadowRoot + path.sep))
+            referencedWts.add(path.basename(turn.cwd));
         }
       } catch {
       }
     }
   }
   for (const runId of runsToRemove) {
-    if (!referencedWts.has(runId)) removeWorktree(runId, report);
+    if (!referencedWts.has(runId)) {
+      removeWorktree(runId, report);
+      fs.rmSync(path.join(shadowRoot, runId), { recursive: true, force: true });
+    }
     fs.rmSync(paths.runDir(runId), { recursive: true, force: true });
     report.runsRemoved.push(runId);
   }
-  if (fs.existsSync(wtRoot)) {
-    for (const runId of fs.readdirSync(wtRoot)) {
+  for (const root of [wtRoot, shadowRoot]) {
+    if (!fs.existsSync(root)) continue;
+    for (const runId of fs.readdirSync(root)) {
       if (referencedWts.has(runId)) continue;
-      if (!fs.existsSync(paths.runDir(runId)) && fs.statSync(path.join(wtRoot, runId)).mtimeMs < runCutoff) {
-        removeWorktree(runId, report);
+      if (!fs.existsSync(paths.runDir(runId)) && fs.statSync(path.join(root, runId)).mtimeMs < runCutoff) {
+        if (root === wtRoot) removeWorktree(runId, report);
+        else {
+          fs.rmSync(path.join(root, runId), { recursive: true, force: true });
+          report.worktreesRemoved.push(runId);
+        }
       }
     }
   }
@@ -96,4 +106,4 @@ function removeWorktree(runId, report) {
 export {
   runGc
 };
-//# sourceMappingURL=gc-XPZ7SKOY.js.map
+//# sourceMappingURL=gc-HK7GE5T3.js.map

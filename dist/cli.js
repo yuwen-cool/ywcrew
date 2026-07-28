@@ -4,7 +4,7 @@ import {
 } from "./chunk-7J3ENWYB.js";
 import {
   dispatchTask
-} from "./chunk-LHHRB7ZV.js";
+} from "./chunk-QNRVPUHT.js";
 import {
   adapters,
   getThread
@@ -17,7 +17,7 @@ import {
   loadConfig,
   saveCapabilities,
   saveConfig
-} from "./chunk-CNHRP3AD.js";
+} from "./chunk-A6PGVESN.js";
 import {
   listRuns,
   readResult,
@@ -508,7 +508,7 @@ route.command("list").description("\u67E5\u770B\u5F53\u524D\u751F\u6548\u7684\u8
   for (const r of effectiveRouting2(config)) console.log(`  ${r.when}  \u2192  ${r.use}`);
 });
 route.command("add").description('\u65B0\u589E\u4E00\u6761\u81EA\u5B9A\u4E49\u89C4\u5219\uFF0C\u5982 ywcrew route add "\u6027\u80FD\u4F18\u5316" "codex::high"').argument("<when>", "\u4EFB\u52A1\u7C7B\u578B\u63CF\u8FF0").argument("<use>", "backend[:model][:effort]").action(async (when, use) => {
-  const { saveConfig: saveConfig2 } = await import("./load-ZFCKIHYO.js");
+  const { saveConfig: saveConfig2 } = await import("./load-NJ3ITFY7.js");
   const config = loadConfig();
   config.defaults.routing.push({ when, use });
   saveConfig2(config);
@@ -516,7 +516,7 @@ route.command("add").description('\u65B0\u589E\u4E00\u6761\u81EA\u5B9A\u4E49\u89
   console.log(`\u2705 \u5DF2\u6DFB\u52A0\u5E76\u91CD\u65B0\u6E32\u67D3\u6280\u80FD\uFF1A${when} \u2192 ${use}`);
 });
 route.command("clear").description("\u6E05\u7A7A\u81EA\u5B9A\u4E49\u89C4\u5219\uFF0C\u56DE\u5230\u5185\u7F6E\u9ED8\u8BA4").action(async () => {
-  const { saveConfig: saveConfig2 } = await import("./load-ZFCKIHYO.js");
+  const { saveConfig: saveConfig2 } = await import("./load-NJ3ITFY7.js");
   const config = loadConfig();
   config.defaults.routing = [];
   saveConfig2(config);
@@ -524,7 +524,7 @@ route.command("clear").description("\u6E05\u7A7A\u81EA\u5B9A\u4E49\u89C4\u5219\u
   console.log("\u2705 \u5DF2\u6062\u590D\u5185\u7F6E\u9ED8\u8BA4\u8DEF\u7531\u5E76\u91CD\u65B0\u6E32\u67D3\u6280\u80FD");
 });
 program.command("gc").description("\u6E05\u7406\u8D85\u9F84\u7684\u5DF2\u5B8C\u6210 run\u3001worktree \u4E0E\u4E0D\u6D3B\u8DC3\u7EBF\u7A0B").option("--days <n>", "run/worktree \u4FDD\u7559\u5929\u6570", "7").option("--thread-days <n>", "\u7EBF\u7A0B\u4FDD\u7559\u5929\u6570", "30").action(async (opts) => {
-  const { runGc } = await import("./gc-XPZ7SKOY.js");
+  const { runGc } = await import("./gc-HK7GE5T3.js");
   const report = runGc({ days: Number(opts.days), threadDays: Number(opts.threadDays) });
   console.log(
     `\u2705 \u5DF2\u6E05\u7406 ${report.runsRemoved.length} \u4E2A run\u3001${report.worktreesRemoved.length} \u4E2A worktree\u3001${report.threadsRemoved.length} \u4E2A\u7EBF\u7A0B\uFF1B\u4FDD\u7559 ${report.kept} \u4E2A run`
@@ -548,11 +548,11 @@ program.command("backends").description("\u5217\u51FA\u540E\u7AEF\u4E0E\u53EF\u7
   console.log(JSON.stringify(out, null, 2));
 });
 program.command("__worker", { hidden: true }).argument("<runId>").action(async (runId) => {
-  const { runWorker } = await import("./worker-FZ4NJTV2.js");
+  const { runWorker } = await import("./worker-OUZTMHCN.js");
   await runWorker(runId);
 });
 program.command("mcp").description("\u4EE5 MCP stdio server \u65B9\u5F0F\u8FD0\u884C\uFF08\u53EF\u9009\u63A5\u5165\u65B9\u5F0F\uFF09").action(async () => {
-  const { startMcpServer } = await import("./server-MSJCBANG.js");
+  const { startMcpServer } = await import("./server-4KNPNG6C.js");
   await startMcpServer();
 });
 program.parseAsync().catch((err) => {

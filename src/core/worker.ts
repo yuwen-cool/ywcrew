@@ -11,6 +11,8 @@ import { loadConfig } from "../config/load.js";
 import { readTask, updateRun, writeHeartbeat, writeResult, readRun } from "./runs.js";
 import { tryAcquireSlot, renewSlot, releaseSlot, processIdentity } from "./lock.js";
 import { appendTurn, planContinuation } from "./threads.js";
+import { createShadowDir } from "./shadow.js";
+import { verifyEvidence } from "./evidence.js";
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const SLOT_WAIT_INTERVAL_MS = 3_000;
@@ -235,33 +237,9 @@ export async function runWorker(runId: string): Promise<void> {
     // 2) 续聊路由（先于目录决策：native 续聊必须回到原执行目录，kimi 等把会话绑定到目录）
     const continuation = planContinuation(threadId, backend);
 
-    // 3) 工作目录与写隔离
+    // 3) 上下文打包（永远从源目录取，shadow/worktree 都以此为基准）
     const sourceCwd = path.resolve(spec.cwd ?? process.cwd());
-    let cwd = sourceCwd;
-    let wtDir: string | undefined;
-    if (continuation.mode === "native" && continuation.cwd && fs.existsSync(continuation.cwd)) {
-      cwd = continuation.cwd;
-    } else {
-      const needsIsolation = spec.mode === "edit" || !adapter.capabilities.nativeReadOnly;
-      if (needsIsolation) {
-        const wt = setupWorktree(runId, sourceCwd);
-        if (wt) {
-          wtDir = wt.wtDir;
-          cwd = wtDir;
-          warnings.push(...wt.warnings);
-        } else if (spec.mode === "edit") warnings.push("非 git 目录，edit 任务未做 worktree 隔离");
-        else warnings.push(`${backend} 无原生只读档且非 git 目录，只读任务仅靠 prompt 约束`);
-      }
-    }
-
-    // 4) 模型/强度：显式传入 > 配置默认；未知模型透传 + warning
-    const model = spec.model ?? backendCfg?.defaultModel;
-    const effort = adapter.capabilities.supportsEffort ? (spec.effort ?? backendCfg?.defaultEffort) : undefined;
-    if (spec.effort && !adapter.capabilities.supportsEffort)
-      warnings.push(`${backend} 不支持思考强度参数，已忽略 effort=${spec.effort}`);
-
-    // 5) 上下文打包
-    const bundle = bundleFiles({ files: spec.files, cwd }, config.defaults.tokenBudget);
+    const bundle = bundleFiles({ files: spec.files, cwd: sourceCwd }, config.defaults.tokenBudget);
     if (!bundle.ok) {
       writeResult(runId, {
         status: "failed",
@@ -275,6 +253,34 @@ export async function runWorker(runId: string): Promise<void> {
       if (s.reason.includes("凭据") || s.reason.includes("密钥") || s.reason.includes("逃逸"))
         warnings.push(`已拒绝附带 ${s.rel}（${s.reason}）`);
     }
+
+    // 4) 工作目录与隔离决策
+    let cwd = sourceCwd;
+    let wtDir: string | undefined;
+    if (continuation.mode === "native" && continuation.cwd && fs.existsSync(continuation.cwd)) {
+      cwd = continuation.cwd;
+    } else if (spec.strict && spec.mode === "read-only") {
+      // 严格读取隔离：影子目录里只有白名单文件，权限档之外的硬边界
+      cwd = createShadowDir(runId, bundle.files);
+    } else {
+      if (spec.strict) warnings.push("strict 仅对 read-only 任务生效，edit 任务走 worktree 隔离");
+      const needsIsolation = spec.mode === "edit" || !adapter.capabilities.nativeReadOnly;
+      if (needsIsolation) {
+        const wt = setupWorktree(runId, sourceCwd);
+        if (wt) {
+          wtDir = wt.wtDir;
+          cwd = wtDir;
+          warnings.push(...wt.warnings);
+        } else if (spec.mode === "edit") warnings.push("非 git 目录，edit 任务未做 worktree 隔离");
+        else warnings.push(`${backend} 无原生只读档且非 git 目录，只读任务仅靠 prompt 约束`);
+      }
+    }
+
+    // 5) 模型/强度：显式传入 > 配置默认；未知模型透传 + warning
+    const model = spec.model ?? backendCfg?.defaultModel;
+    const effort = adapter.capabilities.supportsEffort ? (spec.effort ?? backendCfg?.defaultEffort) : undefined;
+    if (spec.effort && !adapter.capabilities.supportsEffort)
+      warnings.push(`${backend} 不支持思考强度参数，已忽略 effort=${spec.effort}`);
 
     const prompt = renderPrompt(spec, bundle, {
       historyBlock: continuation.mode === "rebuild" ? continuation.historyBlock : undefined,
@@ -296,7 +302,8 @@ export async function runWorker(runId: string): Promise<void> {
 
     // 7) need_more_context：白名单内自动补一轮（最多一次）
     if (contract.needMoreContext && sessionRef) {
-      const extra = bundleFiles({ files: contract.needMoreContext.files, cwd }, config.defaults.tokenBudget);
+      // 从源目录补充（strict 影子目录里没有白名单外的文件），secret guard 照常生效
+      const extra = bundleFiles({ files: contract.needMoreContext.files, cwd: sourceCwd }, config.defaults.tokenBudget);
       if (extra.ok && extra.files.length > 0) {
         const followPrompt = `补充你请求的文件：\n\n${extra.files
           .map((f) => `=== FILE: ${f.rel} ===\n${f.content}\n=== END FILE ===`)
@@ -355,7 +362,7 @@ export async function runWorker(runId: string): Promise<void> {
     const result: ResultContract = {
       status: contract.result ? "ok" : "contract_violated",
       summary: contract.result?.summary ?? text.slice(0, 6000),
-      evidence: contract.result?.evidence ?? [],
+      evidence: verifyEvidence(contract.result?.evidence ?? [], cwd),
       confidence: contract.result?.confidence,
       artifacts: patchFile ? { patch: patchFile, files: [] } : undefined,
       usage: { ...adapter.extractUsage?.(outcome.stdout), durationMs },
