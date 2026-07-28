@@ -5,6 +5,28 @@ import { saveConfig, loadConfig, ensureHome } from "../config/load.js";
 import { probeAll } from "./probe.js";
 import { installSkills } from "../install/hosts.js";
 
+/** 装完即显示的上手指引：用户和替用户安装的 AI 都能立即知道下一步做什么 */
+function printQuickstart(enabled: string[]): void {
+  console.log(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ ywcrew 装好了。现在对你的 AI 智能体（Cursor / Claude Code / Codex / Grok / Kimi 任意一个）直接说：
+
+   「用 ywcrew 让 ${enabled.includes("kimi") ? "kimi" : enabled[0]} 评审这个文件」
+   「让 ${enabled.includes("codex") ? "GPT 用最高思考强度" : enabled[0]} 查一下这个 bug」
+   「开个评审会，多找几个模型对比一下这两个方案」
+
+智能体会自动读取已分发的 ywcrew 技能完成派单，你不需要记任何命令。
+
+如果你是替用户安装的 AI：请把上面三个示例转告用户；本次会话中你也可以
+直接运行 ywcrew 命令（ywcrew template 看任务模板，ywcrew backends 看可用模型）。
+
+常用自查：
+   ywcrew doctor       # 体检：哪些后端可用、登录态、技能是否装载
+   ywcrew route list   # 查看/自定义"什么任务派给谁"的路由偏好
+   ywcrew init         # 交互式重新配置默认模型（不会覆盖你的自定义偏好）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+}
+
 export async function runInit(opts: { yes?: boolean } = {}): Promise<void> {
   ensureHome();
   console.log("ywcrew 初始化\n");
@@ -52,8 +74,9 @@ export async function runInit(opts: { yes?: boolean } = {}): Promise<void> {
     }
     if (config.defaults.panel.length === 0) config.defaults.panel = enabled.slice(0, 3);
     saveConfig(config);
-    console.log(`\n✅ 已启用: ${enabled.join(", ")}（配置写入 ~/.ywcrew/config.json，可随时 ywcrew init 交互调整）`);
+    console.log(`\n✅ 已启用: ${enabled.join(", ")}（配置写入 ~/.ywcrew/config.json）`);
     installSkills();
+    printQuickstart(enabled);
     return;
   }
 
@@ -125,5 +148,5 @@ export async function runInit(opts: { yes?: boolean } = {}): Promise<void> {
   } else {
     console.log("之后可随时运行: ywcrew install");
   }
-  console.log('\n完成。在任意宿主里试一句："用 ywcrew 让 kimi 评审这个文件"');
+  printQuickstart(enabledIds);
 }

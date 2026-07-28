@@ -37,18 +37,19 @@ ywcrew 让它们互相调用：在任何一个智能体里说句话，就能把�
 
 **把仓库名发给你的智能体**（推荐），对任意 agent 说：
 
-> 帮我安装 github.com/yuwen-cool/ywcrew：`npm install -g https://github.com/yuwen-cool/ywcrew/archive/refs/heads/main.tar.gz && ywcrew init --yes`，装完用 `ywcrew doctor` 告诉我哪些后端可用。
+> 帮我安装 github.com/yuwen-cool/ywcrew：运行 `curl -fsSL https://raw.githubusercontent.com/yuwen-cool/ywcrew/main/install.sh | bash`，装完把上手指引转告我。
 
-或者自己动手：
+或者自己在终端跑同一条命令：
 
 ```bash
-npm install -g https://github.com/yuwen-cool/ywcrew/archive/refs/heads/main.tar.gz
-ywcrew init        # 交互式：探测本地 CLI → 确认默认模型/思考强度/评审会成员 → 分发技能
+curl -fsSL https://raw.githubusercontent.com/yuwen-cool/ywcrew/main/install.sh | bash
 ```
 
-- 需要 Node ≥ 20；`init --yes` 为非交互模式（自动启用所有已登录的后端，绝不覆盖已有偏好）
+装完屏幕上会直接给出上手指引（对智能体说什么、怎么自查）。想逐项确认配置的话，再跑一次交互式 `ywcrew init`。
+
+- 唯一前置要求：Node ≥ 20（脚本会检查并提示）
+- **不需要注册任何账号**：直接从本仓库下载，构建产物已随仓库提供
 - 升级：重跑同一条安装命令；`~/.ywcrew` 下的配置与偏好不受影响
-- 无需构建、无需任何账号：`dist/` 已随仓库提供
 
 ## 工作原理
 

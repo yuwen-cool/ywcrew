@@ -14,6 +14,21 @@ import { BACKEND_IDS, type BackendId } from "./config/schema.js";
 
 const program = new Command();
 program.name("ywcrew").description("把任务派给你本地订阅的 AI agents（claude/codex/grok/kimi/agy）").version("0.1.0");
+program.addHelpText(
+  "after",
+  `
+上手（普通用户不需要记命令，对你的智能体说话即可）：
+  「用 ywcrew 让 kimi 评审这个文件」
+  「让 GPT 用最高思考强度查一下这个 bug」
+  「开个评审会，多找几个模型对比这两个方案」
+
+宿主 agent 派单三步（详见已分发的 ywcrew 技能）：
+  1. echo '<任务 JSON>' | ywcrew run --stdin     # ywcrew template 看模板
+  2. ywcrew result <runId> --wait                # 阻塞取结构化结论
+  3. ywcrew followup <threadId> "追问…"          # 跨轮续聊
+
+首次使用 / 排障：ywcrew init · ywcrew doctor`,
+);
 
 // 注意：模板里只放合法真值，不放占位符——宿主 agent 照抄模板漏改字段时，
 // 占位符会被当真值透传给后端。model 可选，不指定就整个省略该字段。
