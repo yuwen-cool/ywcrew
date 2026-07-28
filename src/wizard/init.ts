@@ -12,7 +12,7 @@ function printQuickstart(enabled: string[]): void {
 ✅ ywcrew 装好了。现在对你的 AI 智能体（Cursor / Claude Code / Codex / Grok / Kimi 任意一个）直接说：
 
    「用 ywcrew 让 ${enabled.includes("kimi") ? "kimi" : enabled[0]} 评审这个文件」
-   「让 ${enabled.includes("codex") ? "GPT 用最高思考强度" : enabled[0]} 查一下这个 bug」
+   「让${enabled.includes("codex") ? " GPT 用最高思考强度" : ` ${enabled[0]} `}查一下这个 bug」
    「开个评审会，多找几个模型对比一下这两个方案」
 
 智能体会自动读取已分发的 ywcrew 技能完成派单，你不需要记任何命令。
