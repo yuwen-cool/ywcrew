@@ -1,4 +1,5 @@
 node_modules/
-dist/
 *.log
 .DS_Store
+# dist/ 有意提交进仓库：GitHub 直装（npm install -g github:…）不跑构建，
+# 改动 src 后必须 npm run build 再提交
