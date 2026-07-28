@@ -1,7 +1,7 @@
 {
   "name": "ywcrew",
   "version": "0.1.0",
-  "description": "Dispatch tasks to your locally-subscribed AI agents (Claude Code, Codex, Grok, Kimi, Antigravity) from any host agent — parallel, cache-friendly, one command away.",
+  "description": "让你的 AI 智能体们组成一个团队：在任意宿主里把任务派给本地订阅的 Claude Code / Codex / Grok / Kimi / Antigravity，并行执行、不打断当前对话、全部走已有订阅。",
   "type": "module",
   "bin": {
     "ywcrew": "./dist/cli.js"
