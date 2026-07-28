@@ -24,14 +24,16 @@
 
 **方式一：把仓库名发给你的智能体**（推荐）。对任意 agent 说：
 
-> 帮我安装 github.com/yuwen-cool/ywcrew：`npm install -g github:yuwen-cool/ywcrew && ywcrew init --yes`，装完用 `ywcrew doctor` 告诉我哪些后端可用。
+> 帮我安装 github.com/yuwen-cool/ywcrew：`npm install -g https://github.com/yuwen-cool/ywcrew/archive/refs/heads/main.tar.gz && ywcrew init --yes`，装完用 `ywcrew doctor` 告诉我哪些后端可用。
 
 **方式二：自己动手**：
 
 ```bash
-npm install -g github:yuwen-cool/ywcrew
+npm install -g https://github.com/yuwen-cool/ywcrew/archive/refs/heads/main.tar.gz
 ywcrew init        # 交互式：探测本地 CLI → 逐个确认模型/思考强度/panel 成员 → 分发技能
 ```
+
+> 用 tarball URL 而非 `github:` 协议，是因为 npm 11 对 git 全局安装存在悬空软链问题；tarball 安装无需构建（dist 已随仓库提供）、无需任何账号。
 
 升级：重跑同一条安装命令即可（`~/.ywcrew` 下的配置与偏好不受影响，装完 `ywcrew install` 重渲染技能）。
 
