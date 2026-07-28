@@ -114,6 +114,11 @@ describe("agy 模型归一化", () => {
     const spec = agyAdapter.planDispatch({ ...req, model: "gemini-3.6-flash-medium", effort: "high" });
     expect(spec.argv).toContain("gemini-3.6-flash-medium");
   });
+  it("无强度变体的模型（claude 系）不拼 effort 后缀", () => {
+    const spec = agyAdapter.planDispatch({ ...req, model: "claude-sonnet-4-6", effort: "medium" });
+    expect(spec.argv).toContain("claude-sonnet-4-6");
+    expect(spec.argv.join(" ")).not.toContain("claude-sonnet-4-6-medium");
+  });
   it("识别实测登录过期文案", () => {
     expect(agyAdapter.classifyError("Error: authentication required. Run 'agy' to log in, then retry.", 1)).toBe(
       "auth_required",

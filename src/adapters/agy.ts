@@ -62,10 +62,12 @@ export const agyAdapter: Adapter = {
     const argv = ["-p", req.prompt, "--print-timeout", "20m"];
     argv.push("--mode", req.mode === "read-only" ? "plan" : "accept-edits");
     if (req.model) {
-      // 用户可能传 base 名或完整名；有 effort 且是 base 名时补后缀
       const { base, effort: embedded } = decomposeAgyModel(req.model);
-      const effort = embedded ?? req.effort;
-      argv.push("--model", effort ? `${base}-${effort}` : req.model);
+      // 只有 gemini/gpt-oss 系列存在强度后缀变体；claude 系列无变体，
+      // 拼后缀会得到不存在的型号（实测 claude-sonnet-4-6-medium 直接报错）
+      const hasEffortVariants = /^(gemini|gpt-oss)/i.test(base);
+      const effort = embedded ?? (hasEffortVariants ? req.effort : undefined);
+      argv.push("--model", effort && hasEffortVariants ? `${base}-${effort}` : req.model);
     } else if (req.effort) {
       // 无模型仅有 effort：交给 agy 默认模型（无法安全拼后缀）
       argv.push("--effort", req.effort);

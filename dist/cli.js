@@ -4,11 +4,11 @@ import {
 } from "./chunk-7J3ENWYB.js";
 import {
   dispatchTask
-} from "./chunk-FNMNINAP.js";
+} from "./chunk-LHHRB7ZV.js";
 import {
   adapters,
   getThread
-} from "./chunk-UVTNF3GJ.js";
+} from "./chunk-JTDLTURC.js";
 import {
   BACKEND_IDS,
   ConfigSchema,
@@ -548,11 +548,11 @@ program.command("backends").description("\u5217\u51FA\u540E\u7AEF\u4E0E\u53EF\u7
   console.log(JSON.stringify(out, null, 2));
 });
 program.command("__worker", { hidden: true }).argument("<runId>").action(async (runId) => {
-  const { runWorker } = await import("./worker-BGCHFNAH.js");
+  const { runWorker } = await import("./worker-FZ4NJTV2.js");
   await runWorker(runId);
 });
 program.command("mcp").description("\u4EE5 MCP stdio server \u65B9\u5F0F\u8FD0\u884C\uFF08\u53EF\u9009\u63A5\u5165\u65B9\u5F0F\uFF09").action(async () => {
-  const { startMcpServer } = await import("./server-IZIBY6CV.js");
+  const { startMcpServer } = await import("./server-MSJCBANG.js");
   await startMcpServer();
 });
 program.parseAsync().catch((err) => {

@@ -388,8 +388,9 @@ var agyAdapter = {
     argv.push("--mode", req.mode === "read-only" ? "plan" : "accept-edits");
     if (req.model) {
       const { base, effort: embedded } = decomposeAgyModel(req.model);
-      const effort = embedded ?? req.effort;
-      argv.push("--model", effort ? `${base}-${effort}` : req.model);
+      const hasEffortVariants = /^(gemini|gpt-oss)/i.test(base);
+      const effort = embedded ?? (hasEffortVariants ? req.effort : void 0);
+      argv.push("--model", effort && hasEffortVariants ? `${base}-${effort}` : req.model);
     } else if (req.effort) {
       argv.push("--effort", req.effort);
     }
@@ -494,4 +495,4 @@ export {
   appendTurn,
   planContinuation
 };
-//# sourceMappingURL=chunk-UVTNF3GJ.js.map
+//# sourceMappingURL=chunk-JTDLTURC.js.map
